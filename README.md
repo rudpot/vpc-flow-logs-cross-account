@@ -20,6 +20,8 @@ aws --profile ${PROFILE_DST} cloudformation create-stack \
   --stack-name flow-log-dst \
   --template-body file://template-remote-bucket.yaml  \
   --parameters ParameterKey=SourceAccountId,ParameterValue=${SRC_ACCOUNT_ID}
+aws --profile ${PROFILE_DST} cloudformation wait stack-create-complete \
+  --stack-name flow-log-dst
 
 # Get TARGET bucekt ARN
 DST_BUCKET_ARN=$(aws --profile ${PROFILE_DST} cloudformation describe-stacks   --stack-name flow-log-dst  --query 'Stacks[0].Outputs[?OutputKey == `RemoteBucketArn`].OutputValue' --output text)
@@ -31,6 +33,8 @@ aws --profile ${PROFILE_SRC} cloudformation create-stack \
   --parameters \
     ParameterKey=FlowLogSubnet,ParameterValue=${SRC_SUBNET_ID} \
     ParameterKey=RemoteBucketArn,ParameterValue=${DST_BUCKET_ARN}
+aws --profile ${PROFILE_SRC} cloudformation wait stack-create-complete \
+  --stack-name flow-log-src
 ```
 
 After a couple minutes you should see flow logs in both buckets.
