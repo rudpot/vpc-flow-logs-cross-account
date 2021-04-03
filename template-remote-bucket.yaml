@@ -7,8 +7,8 @@ Parameters:
 Resources:
   FlowLogsRemoteAccount:
     Type: 'AWS::S3::Bucket'
-    # S3 bucket doesn't allow Delete :()
-    DeletionPolicy: Retain
+    # This will make stack deletion fail until bucket is manually emptied
+    DeletionPolicy: Delete
     Properties:
       BucketName: !Sub "demo-vpc-flow-logs-${AWS::AccountId}"
       PublicAccessBlockConfiguration:
