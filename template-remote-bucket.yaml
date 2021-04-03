@@ -1,0 +1,44 @@
+Parameters:
+  SourceAccountId:
+    Type: String
+    AllowedPattern: "[0-9][0-9-]+"
+    Description: Account from which VPC logs are originating
+
+Resources:
+  FlowLogsRemoteAccount:
+    Type: 'AWS::S3::Bucket'
+    # S3 bucket doesn't allow Delete :()
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "demo-vpc-flow-logs-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  FlowLogsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref FlowLogsRemoteAccount
+      PolicyDocument:
+        Statement:
+          - Sid: AWSLogDeliveryWrite
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "${FlowLogsRemoteAccount.Arn}/AWSLogs/${SourceAccountId}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+          - Sid: AWSLogDeliveryAclCheck
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt FlowLogsRemoteAccount.Arn
+
+Outputs:
+  RemoteBucketArn:
+    Description: "Bucket ARN in remote account - use for flow log creation"
+    Value: !GetAtt FlowLogsRemoteAccount.Arn

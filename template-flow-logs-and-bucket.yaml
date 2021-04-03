@@ -1,0 +1,74 @@
+Parameters:
+  FlowLogSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID for which to create flow logs
+  RemoteBucketArn:
+    Type: String
+    Description: ARN of an S3 bucket in a remote account to receive flow logs
+
+
+Resources:
+  FlowLogToSameAccountBucket:
+    Type: AWS::EC2::FlowLog
+    Properties: 
+      ResourceId: !Ref FlowLogSubnet
+      ResourceType: Subnet
+      TrafficType: ALL
+      LogDestination: !GetAtt FlowLogsSameAccount.Arn
+      LogDestinationType: s3
+      MaxAggregationInterval: 60
+      Tags:
+        -
+          Key: Name
+          Value: TestingFlowLogDeliveryInSameAccount
+  FlowLogToRemoteAccountBucket:
+    Type: AWS::EC2::FlowLog
+    Properties: 
+      ResourceId: !Ref FlowLogSubnet
+      ResourceType: Subnet
+      TrafficType: ALL
+      LogDestination: !Ref RemoteBucketArn
+      LogDestinationType: s3
+      MaxAggregationInterval: 60
+      Tags:
+        -
+          Key: Name
+          Value: TestingFlowLogDeliveryInRemoteAccount
+
+  FlowLogsSameAccount:
+    Type: 'AWS::S3::Bucket'
+    # S3 bucket doesn't allow Delete :()
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "demo-vpc-flow-logs-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  FlowLogsBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref FlowLogsSameAccount
+      PolicyDocument:
+        Statement:
+          - Sid: AWSLogDeliveryWrite
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub "${FlowLogsSameAccount.Arn}/AWSLogs/${AWS::AccountId}/*"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+          - Sid: AWSLogDeliveryAclCheck
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt FlowLogsSameAccount.Arn
+
+Outputs:
+  SourceAccountId:
+    Description: "Account in which flow logs originate"
+    Value: !Sub "${AWS::AccountId}"
